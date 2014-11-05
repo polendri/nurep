@@ -1,7 +1,7 @@
 extern crate sdl2;
 extern crate native;
 
-use drawing;
+mod drawing;
 
 pub fn main() {
     sdl2::init(sdl2::INIT_VIDEO);
@@ -54,6 +54,5 @@ struct State {
 fn draw(renderer: &sdl2::render::Renderer, state: &State) -> sdl2::SdlResult<()> {
     try!(renderer.set_draw_color(sdl2::pixels::RGB(0, 0, 0)));
     try!(renderer.clear());
-    try!(drawing::draw_circle(renderer, state.circle_position, 30, sdl2::Pixels::RGB(255, 0, 0)));
-    Ok(())
+    drawing::draw_circle(renderer, state.circle_position, 30, sdl2::pixels::RGB(255, 0, 0))
 }

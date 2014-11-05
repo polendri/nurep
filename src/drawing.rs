@@ -5,10 +5,10 @@
 extern crate sdl2;
 
 /// Draws a circle with the specified position, radius and colour.
-fn draw_circle(
+pub fn draw_circle(
         renderer: &sdl2::render::Renderer,
         position: (i32, i32),
-        radius: i32
+        radius: i32,
         color: sdl2::pixels::Color)
         -> sdl2::SdlResult<()> {
     let old_color = try!(renderer.get_draw_color());
@@ -32,6 +32,5 @@ fn draw_circle(
         }
     }
 
-    try!(renderer.set_draw_color(old_color));
-    Ok(())
+    renderer.set_draw_color(old_color)
 }
