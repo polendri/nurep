@@ -1,0 +1,14 @@
+[package]
+name = "nuvis"
+version = "0.0.1"
+authors = ["Paul Hendry <paul@pshendry.com>"]
+
+[[bin]]
+name = "nuvis"
+path = "src/main.rs"
+
+[dependencies.planets_nu]
+git = "https://github.com/pshendry/rust-planets-nu.git"
+
+[dependencies.sdl2]
+git = "https://github.com/AngryLawyer/rust-sdl2"
