@@ -5,7 +5,11 @@ authors = ["Paul Hendry <paul@pshendry.com>"]
 
 [[bin]]
 name = "nuvis"
-path = "src/main.rs"
+path = "src/nuvis.rs"
+
+[[bin]]
+name = "nuvis-download"
+path = "src/download.rs"
 
 [dependencies.planets_nu]
 git = "https://github.com/pshendry/rust-planets-nu.git"
