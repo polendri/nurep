@@ -97,13 +97,16 @@ fn main() {
             print!("Password: ");
             // TODO: Find a way to not echo this back to the user :(
             let password = match io::stdin().read_line() {
-                Ok(s) => s,
+                Ok(ref s) => {
+                    let mut s_trunc = s.clone();
+                    s_trunc.truncate(s.len() - 1);
+                    s_trunc
+                },
                 Err(_) => return,
             };
             print!("\n\nAuthenticating with planets.nu...");
-            print!("username: {}, password: {}", username, password);
 
-            let login_result = match request::login(username, password) {
+            let login_result = match request::login(username.as_slice(), password.as_slice()) {
                 Ok(r) => r,
                 Err(e) => {
                     println!(" ...Failed.");
@@ -118,13 +121,13 @@ fn main() {
         None => None,
     };
 
-    print!("Downloading game data...");
+    let mut turn : i32 = 1;
+    print!("Downloading game data... Turn {: >04d}", turn);
 
-    /*
-    let response = match request::load_turn(game_id, Some(1), None, Some(player_id), false) {
+    let response = match request::load_turn(args.game_id, Some(1), api_key.clone(), Some(args.player_id), false) {
         Ok(x) => x,
         Err(e) => {
-            println!("Error: Request to planets.nu failed. (Reason: {})", e);
+            println!("\nError: Request to planets.nu failed. (Reason: {})", e);
             return;
         },
     };
@@ -137,32 +140,28 @@ fn main() {
         });
         planet_id_counter += 1;
     }
-    let galaxy = state::Galaxy {
+    let cluster = state::Cluster {
         dimensions: (response.game_settings.map_width, response.game_settings.map_height),
         planets: planets,
         connections: Vec::new()
     };
-    */
-    println!(" ...Done.");
+    turn += 1;
 
-    /*
-    let mut turn : i32 = 2;
     loop {
-        let response = match request::load_turn(game_id, Some(turn), None, Some(player_id), false) {
+        print!("\rDownloading game data... Turn {: >04d}", turn);
+        // TODO: no apikey.clone()
+        let response = match request::load_turn(args.game_id, Some(turn), api_key.clone(), Some(args.player_id), false) {
             Ok(x) => x,
             Err(e) => break,
         };
 
-        f
+        // TODO
 
         turn += 1;
     }
-    */
 
-    /*
-    let state = state::State { galaxy: galaxy };
+    let state = state::State { cluster: cluster };
     let output_json = json::encode(&state);
-    let mut output_file = io::File::create(&Path::new(output_path));
+    let mut output_file = io::File::create(&Path::new(args.output_path));
     let _ = output_file.write_str(output_json.as_slice());
-    */
 }

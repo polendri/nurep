@@ -6,7 +6,7 @@
 #[deriving(Decodable, Encodable)]
 pub struct PlanetId(pub i32);
 
-/// Represents a single planet in the galaxy.
+/// Represents a single planet in the cluster.
 #[deriving(Decodable, Encodable)]
 pub struct Planet {
     pub id: PlanetId,
@@ -20,9 +20,9 @@ pub struct Connection {
     pub id_b: PlanetId,
 }
 
-/// Represents a galaxy full of planets.
+/// Represents a cluster full of planets.
 #[deriving(Decodable, Encodable)]
-pub struct Galaxy {
+pub struct Cluster {
     pub dimensions: (i32, i32),
     pub planets: Vec<Planet>,
     pub connections: Vec<Connection>,
@@ -31,5 +31,5 @@ pub struct Galaxy {
 /// Represents all info needed to visualize a whole game.
 #[deriving(Decodable, Encodable)]
 pub struct State {
-    pub galaxy: Galaxy,
+    pub cluster: Cluster,
 }

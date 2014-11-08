@@ -72,14 +72,14 @@ struct State {
 
 #[must_use]
 fn draw(renderer: &sdl2::render::Renderer, state: &state::State) -> sdl2::SdlResult<()> {
-    let (w, h) = state.galaxy.dimensions;
+    let (w, h) = state.cluster.dimensions;
     let w_factor: f64 = 1000f64 / (w as f64);
     let h_factor: f64 = 1000f64 / (h as f64);
 
     try!(renderer.set_draw_color(sdl2::pixels::RGB(0, 0, 0)));
     try!(renderer.clear());
 
-    for planet in state.galaxy.planets.iter() {
+    for planet in state.cluster.planets.iter() {
         let (x, y) = planet.position;
         try!(drawing::draw_circle(
             renderer,
