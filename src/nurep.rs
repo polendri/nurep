@@ -10,7 +10,7 @@ mod drawing;
 mod state;
 
 fn print_usage() {
-    println!("Usage: nuvis <data_path>");
+    println!("Usage: nurep <data_path>");
 }
 
 fn main() {
@@ -27,7 +27,7 @@ fn main() {
     sdl2::init(sdl2::INIT_VIDEO);
 
     let window = match sdl2::video::Window::new(
-            "nuvis",
+            "nurep",
             sdl2::video::PosCentered,
             sdl2::video::PosCentered,
             1000,

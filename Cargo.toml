@@ -1,14 +1,14 @@
 [package]
-name = "nuvis"
+name = "nurep"
 version = "0.0.1"
 authors = ["Paul Hendry <paul@pshendry.com>"]
 
 [[bin]]
-name = "nuvis"
-path = "src/nuvis.rs"
+name = "nurep"
+path = "src/nurep.rs"
 
 [[bin]]
-name = "nuvis-download"
+name = "nurep-download"
 path = "src/download.rs"
 
 [dependencies.planets_nu]

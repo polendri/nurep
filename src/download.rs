@@ -1,5 +1,5 @@
 /*!
-  A tool for downloading planets.nu data and creating data files for use with nuvis.
+  A tool for downloading planets.nu data and creating data files for use with nurep.
 */
 
 extern crate getopts;

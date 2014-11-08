@@ -1,4 +1,4 @@
-nuvis
+nurep
 =====
 
-A visualizer for planets.nu games
+A basic replay viewer for planets.nu games.
