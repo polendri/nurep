@@ -122,7 +122,7 @@ fn main() {
     };
 
     let mut turn : i32 = 1;
-    print!("Downloading game data... Turn {: >04d}", turn);
+    print!("Downloading game data... Turn {: >4d}", turn);
 
     let response = match request::load_turn(args.game_id, Some(1), api_key.clone(), Some(args.player_id), false) {
         Ok(x) => x,
@@ -148,11 +148,12 @@ fn main() {
     turn += 1;
 
     loop {
-        print!("\rDownloading game data... Turn {: >04d}", turn);
+        print!("\rDownloading game data... Turn {: >4d}", turn);
+        io::stdio::flush();
         // TODO: no apikey.clone()
         let response = match request::load_turn(args.game_id, Some(turn), api_key.clone(), Some(args.player_id), false) {
             Ok(x) => x,
-            Err(e) => break,
+            Err(_) => break,
         };
 
         // TODO
@@ -160,8 +161,13 @@ fn main() {
         turn += 1;
     }
 
+    println!("\rDownloading game data... ...Done. ");
+    print!("Saving data to disk...");
+
     let state = state::State { cluster: cluster };
     let output_json = json::encode(&state);
     let mut output_file = io::File::create(&Path::new(args.output_path));
     let _ = output_file.write_str(output_json.as_slice());
+
+    println!(" ...Done.");
 }
