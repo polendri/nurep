@@ -10,6 +10,7 @@ use planets_nu::request;
 use serialize::json;
 use std::io;
 use std::os;
+use std::collections::TreeMap;
 
 mod state;
 
@@ -85,6 +86,41 @@ fn parse_args(args: &Vec<String>) -> Option<Arguments> {
     })
 }
 
+/// Builds a Cluster object from a load turn response.
+fn build_cluster(response: &request::LoadTurnResult) -> state::Cluster {
+    let mut planets: Vec<state::Planet> = Vec::new();
+
+    for p in response.planets.iter() {
+        planets.push(state::Planet {
+            id: p.id,
+            position: p.position,
+        });
+    }
+
+    state::Cluster {
+        dimensions: (response.game_settings.map_width, response.game_settings.map_height),
+        planets: planets,
+        connections: Vec::new(),
+    }
+}
+
+/// Adds the owners of planets for the given turn.
+fn add_owners(
+        planet_to_owners: &mut TreeMap<i32, TreeMap<i32, i32>>,
+        response: &request::LoadTurnResult,
+        turn: i32) {
+    for p in response.planets.iter() {
+        let turn_to_owner =
+            if planet_to_owners.contains_key(&p.id) {
+                planet_to_owners.get_mut(&p.id).unwrap()
+            } else {
+                planet_to_owners.insert(p.id, TreeMap::new());
+                planet_to_owners.get_mut(&p.id).unwrap()
+            };
+        turn_to_owner.insert(turn, p.owner_id);
+    }
+}
+
 fn main() {
     let args = match parse_args(&os::args()) {
         Some(a) => a,
@@ -124,6 +160,7 @@ fn main() {
     let mut turn : i32 = 1;
     print!("Downloading game data... Turn {: >4d}", turn);
 
+    // TODO: Figure out why we need a .clone() here
     let response = match request::load_turn(args.game_id, Some(1), api_key.clone(), Some(args.player_id), false) {
         Ok(x) => x,
         Err(e) => {
@@ -131,41 +168,32 @@ fn main() {
             return;
         },
     };
-    let mut planet_id_counter: i32 = 1;
-    let mut planets: Vec<state::Planet> = Vec::new();
-    for p in response.planets.iter() {
-        planets.push(state::Planet {
-            id: state::PlanetId(planet_id_counter),
-            position: p.position,
-        });
-        planet_id_counter += 1;
-    }
-    let cluster = state::Cluster {
-        dimensions: (response.game_settings.map_width, response.game_settings.map_height),
-        planets: planets,
-        connections: Vec::new()
-    };
+    let cluster = build_cluster(&response);
+    let mut planet_to_owners: TreeMap<i32, TreeMap<i32, i32>> = TreeMap::new();
+    add_owners(&mut planet_to_owners, &response, turn);
     turn += 1;
 
     loop {
         print!("\rDownloading game data... Turn {: >4d}", turn);
         io::stdio::flush();
-        // TODO: no apikey.clone()
         let response = match request::load_turn(args.game_id, Some(turn), api_key.clone(), Some(args.player_id), false) {
             Ok(x) => x,
             Err(_) => break,
         };
 
-        // TODO
-
+        add_owners(&mut planet_to_owners, &response, turn);
         turn += 1;
     }
 
     println!("\rDownloading game data... ...Done. ");
     print!("Saving data to disk...");
 
-    let state = state::State { cluster: cluster };
-    let output_json = json::encode(&state);
+    let game = state::Game {
+        num_turns: turn - 2,
+        cluster: cluster,
+        planet_to_owners: planet_to_owners
+    };
+    let output_json = json::encode(&game);
     let mut output_file = io::File::create(&Path::new(args.output_path));
     let _ = output_file.write_str(output_json.as_slice());
 
