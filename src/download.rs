@@ -159,6 +159,7 @@ fn main() {
 
     let mut turn : i32 = 1;
     print!("Downloading game data... Turn {: >4d}", turn);
+    io::stdio::flush();
 
     // TODO: Figure out why we need a .clone() here
     let response = match request::load_turn(args.game_id, Some(1), api_key.clone(), Some(args.player_id), false) {

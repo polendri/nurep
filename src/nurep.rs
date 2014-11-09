@@ -3,6 +3,7 @@ extern crate sdl2;
 extern crate serialize;
 
 use serialize::json;
+use std::cmp;
 use std::io;
 use std::os;
 
@@ -30,9 +31,9 @@ fn main() {
             "nurep",
             sdl2::video::PosCentered,
             sdl2::video::PosCentered,
-            1000,
-            1000,
-            sdl2::video::OPENGL) {
+            0,
+            0,
+            sdl2::video::FULLSCREEN_DESKTOP) {
         Ok(window) => window,
         Err(err) => panic!(format!("failed to create window: {}", err))
     };
@@ -45,11 +46,28 @@ fn main() {
         Err(err) => panic!(format!("failed to create renderer: {}", err))
     };
 
-    let state = State { turn: 1, game: game };
-    let _ = draw(&renderer, &state);
-    renderer.present();
+    // TODO: Somehow know the right display index instead of just picking 0
+    let (screen_width, screen_height) = match sdl2::video::get_current_display_mode(0) {
+        Ok(display_mode) => (display_mode.w as i32, display_mode.h as i32),
+        Err(err) => panic!(format!("failed to retrieve display size: {}", err))
+    };
+    let draw_size = cmp::min(screen_width, screen_height);
+
+    let mut state = State {
+        turn: 1,
+        game: game,
+        draw_size: draw_size,
+        draw_x_offset: (screen_width - draw_size) / 2,
+        draw_y_offset: (screen_height - draw_size) / 2,
+    };
 
     'main : loop {
+        if state.turn > state.game.num_turns {
+            break;
+        }
+
+        let start_time = sdl2::timer::get_ticks();
+
         'event : loop {
             match sdl2::event::poll_event() {
                 sdl2::event::QuitEvent(_) => break 'main,
@@ -62,6 +80,15 @@ fn main() {
                 _ => {}
             }
         }
+
+        let _ = draw(&renderer, &state);
+        renderer.present();
+
+        state.turn += 1;
+        let elapsed = sdl2::timer::get_ticks() - start_time;
+        if elapsed < 250 {
+            sdl2::timer::delay(250 - elapsed);
+        }
     }
 
     sdl2::quit();
@@ -70,6 +97,9 @@ fn main() {
 struct State {
     pub turn: i32,
     pub game: state::Game,
+    pub draw_size: i32,
+    pub draw_x_offset: i32,
+    pub draw_y_offset: i32,
 }
 
 fn pick_color(owner_id: i32) -> sdl2::pixels::Color {
@@ -90,24 +120,26 @@ fn pick_color(owner_id: i32) -> sdl2::pixels::Color {
     }
 }
 
+/// Transforms a coordinate pair from game coordinates to screen coordinates.
+fn transform_coord(state: &State, coord: (i32, i32)) -> (i32, i32) {
+    let (x, y) = coord;
+    let cluster_size = cmp::min(state.game.cluster.dimensions.val0(), state.game.cluster.dimensions.val1()) * 2;
+    let factor = (state.draw_size as f64) / (cluster_size as f64);
+    ((((x as f64) * factor) as i32) + state.draw_x_offset,
+     (((y as f64) * factor) as i32) + state.draw_y_offset)
+}
+
 #[must_use]
 fn draw(renderer: &sdl2::render::Renderer, state: &State) -> sdl2::SdlResult<()> {
-    let (w, h) = state.game.cluster.dimensions;
-    let w_factor: f64 = 1000f64 / (w as f64);
-    let h_factor: f64 = 1000f64 / (h as f64);
-
+    let radius = state.draw_size / 200;
     try!(renderer.set_draw_color(sdl2::pixels::RGB(0, 0, 0)));
     try!(renderer.clear());
 
     for planet in state.game.cluster.planets.iter() {
-        let owner = *state.game.planet_to_owners.get(&planet.id).unwrap().get(&9).unwrap();
+        let owner = *state.game.planet_to_owners.get(&planet.id).unwrap().get(&state.turn).unwrap();
         let color = pick_color(owner);
-        let (x, y) = planet.position;
-        try!(drawing::draw_circle(
-            renderer,
-            ((x as f64 * w_factor) as i32 - (w/2), 1000i32 - ((y as f64 * h_factor) as i32 - (h/2))),
-            5,
-            color));
+        let (x, y) = transform_coord(state, planet.position);
+        try!(drawing::draw_circle(renderer, (x, y), radius, color));
     }
 
     Ok(())
