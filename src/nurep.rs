@@ -15,6 +15,7 @@ fn print_usage() {
 }
 
 fn main() {
+    let mut quit = false;
     let args: Vec<String> = os::args();
     if args.len() != 2 {
         print_usage();
@@ -63,24 +64,20 @@ fn main() {
         scale_factor: scale_factor,
     };
 
-    'main : loop {
+    'main: loop {
         if state.turn > state.game.num_turns {
             break;
         }
 
         let start_time = sdl2::timer::get_ticks();
 
-        'event : loop {
-            match sdl2::event::poll_event() {
-                sdl2::event::QuitEvent(_) => break 'main,
-                sdl2::event::KeyDownEvent(_, _, key, _, _) => {
-                    if key == sdl2::keycode::EscapeKey {
-                        break 'main
-                    }
+        for &a in actions().iter() {
+            match a {
+                Quit => {
+                    quit = true;
+                    break 'main;
                 },
-                sdl2::event::NoEvent => break 'event,
-                _ => {}
-            }
+            };
         }
 
         let _ = draw(&renderer, &state);
@@ -93,6 +90,16 @@ fn main() {
         }
     }
 
+    if !quit {
+        'quit: loop {
+            for &a in actions().iter() {
+                match a {
+                    _ => break 'quit,
+                };
+            }
+        }
+    }
+
     sdl2::quit();
 }
 
@@ -102,6 +109,29 @@ struct State {
     pub draw_size: i32,
     pub draw_offsets: (i32, i32),
     pub scale_factor: f64,
+}
+
+enum Action {
+    Quit,
+}
+
+fn actions() -> Vec<Action> {
+    let mut actions: Vec<Action> = Vec::new();
+
+    loop {
+        match sdl2::event::poll_event() {
+            sdl2::event::QuitEvent(_) => actions.push(Quit),
+            sdl2::event::KeyDownEvent(_, _, key, _, _) => {
+                if key == sdl2::keycode::EscapeKey {
+                    actions.push(Quit);
+                }
+            },
+            sdl2::event::NoEvent => break,
+            _ => {}
+        }
+    }
+
+    actions
 }
 
 fn pick_color(owner_id: i32) -> sdl2::pixels::Color {
