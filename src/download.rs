@@ -80,9 +80,11 @@ fn build_cluster(response: &request::LoadTurnResult) -> state::Cluster {
     }
 
     // Adjust planet coordinates so they're zero-based
-    for &mut p in planets.iter() {
-        let (x, y) = p.position;
-        p.position = (x - min_x, y - min_y);
+    let mut i = 0u;
+    while i < planets.len() {
+        let (x, y) = planets[i].position;
+        planets[i].position = (x - min_x, y - min_y);
+        i += 1;
     }
 
     // Calculate connections by brute force
@@ -165,7 +167,7 @@ fn main() {
     add_owners(&mut planet_to_owners, &response, player_id, turn);
     turn += 1;
 
-    'outer: loop {
+    loop {
         let mut load_turn_success = false;
 
         loop {
@@ -176,7 +178,7 @@ fn main() {
                     load_turn_success = true;
                     x
                 },
-                Err(_) => if load_turn_success { break; } else { break 'outer; },
+                Err(_) => break,
             };
 
             add_owners(&mut planet_to_owners, &response, player_id, turn);
@@ -187,6 +189,9 @@ fn main() {
         println!("\rDownloading game data for player {: >2d}... ...Done. ", player_id);
         player_id += 1;
         turn = 1;
+        if !load_turn_success {
+            break;
+        }
     }
 
     print!("Saving data to disk...");

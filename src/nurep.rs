@@ -52,7 +52,7 @@ fn main() {
         Err(err) => panic!(format!("failed to retrieve display size: {}", err))
     };
     let draw_size = cmp::min(screen_width, screen_height);
-    let scale_factor = 0.95 * (draw_size as f64) / (cmp::max(game.cluster.dimensions.val0(), game.cluster.dimensions.val1()) as f64);
+    let scale_factor = (draw_size as f64) / (cmp::max(game.cluster.dimensions.val0(), game.cluster.dimensions.val1()) as f64);
 
 
     let mut state = State {
