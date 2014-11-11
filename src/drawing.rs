@@ -4,6 +4,23 @@
 
 extern crate sdl2;
 
+/// Draws a line.
+pub fn draw_line(
+        renderer: &sdl2::render::Renderer,
+        start: (i32, i32),
+        end: (i32, i32),
+        color: sdl2::pixels::Color)
+        -> sdl2::SdlResult<()> {
+    let old_color = try!(renderer.get_draw_color());
+    try!(renderer.set_draw_color(color));
+    let (start_x, start_y) = start;
+    let (end_x, end_y) = end;
+    try!(renderer.draw_line(
+        sdl2::rect::Point { x: start_x, y: start_y },
+        sdl2::rect::Point { x: end_x, y: end_y }));
+    renderer.set_draw_color(old_color)
+}
+
 /// Draws a circle with the specified position, radius and colour.
 pub fn draw_circle(
         renderer: &sdl2::render::Renderer,

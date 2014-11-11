@@ -162,10 +162,26 @@ fn transform_coord(state: &State, coord: (i32, i32)) -> (i32, i32) {
 
 #[must_use]
 fn draw(renderer: &sdl2::render::Renderer, state: &State) -> sdl2::SdlResult<()> {
+    // Draw background
     let radius = state.draw_size / 175;
     try!(renderer.set_draw_color(sdl2::pixels::RGB(0, 0, 0)));
     try!(renderer.clear());
 
+    // Draw connections
+    for conn in state.game.cluster.connections.iter() {
+        let position_a = transform_coord(state, match state.game.cluster.planets.iter().find(|x| x.id == conn.id_a) {
+            Some(x) => x.position,
+            None => continue,
+        });
+        let position_b = transform_coord(state, match state.game.cluster.planets.iter().find(|x| x.id == conn.id_b) {
+            Some(x) => x.position,
+            None => continue,
+        });
+        let color = pick_color(0);
+        try!(drawing::draw_line(renderer, position_a, position_b, color));
+    }
+
+    // Draw planets
     for planet in state.game.cluster.planets.iter() {
         let owner = match state.game.planet_to_owners.get(&planet.id) {
             Some(turn_to_owner) => match turn_to_owner.get(&state.turn) {
