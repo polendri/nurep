@@ -14,6 +14,7 @@ pub fn draw_circle(
     let old_color = try!(renderer.get_draw_color());
     try!(renderer.set_draw_color(color));
     let (x, y) = position;
+    let real_radius = (radius as f64) - 0.5;
 
     // Draw a single centre line first
     let start_pt = sdl2::rect::Point { x: x - (radius - 1), y: y };
@@ -22,8 +23,8 @@ pub fn draw_circle(
 
     // Draw successive lines above and below the center
     for i in range(1, radius) {
-        let h = radius - i;
-        let half_w = ((2.0 * (radius as f32) * (h as f32)) - ((h*h) as f32)).sqrt() as i32;
+        let h = real_radius - (i as f64);
+        let half_w = ((2.0 * real_radius * h) - (h*h)).sqrt() as i32;
 
         for &py in [y + i, y - i].iter() {
             let start_pt = sdl2::rect::Point { x: x - half_w, y: py };

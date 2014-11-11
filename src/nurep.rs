@@ -52,14 +52,14 @@ fn main() {
         Err(err) => panic!(format!("failed to retrieve display size: {}", err))
     };
     let draw_size = cmp::min(screen_width, screen_height);
-    let scale_factor = (draw_size as f64) / (cmp::max(game.cluster.dimensions.val0(), game.cluster.dimensions.val1()) as f64);
+    let scale_factor = 0.95 * (draw_size as f64) / (cmp::max(game.cluster.dimensions.val0(), game.cluster.dimensions.val1()) as f64);
 
 
     let mut state = State {
         turn: 1,
         game: game,
         draw_size: draw_size,
-        draw_offsets: ((screen_width - draw_size) / 2, (screen_height - draw_size) / 2),
+        draw_offsets: ((screen_width - draw_size) / 2, ((screen_height - draw_size) / 2) + (draw_size / 40)),
         scale_factor: scale_factor,
     };
 
@@ -88,8 +88,8 @@ fn main() {
 
         state.turn += 1;
         let elapsed = sdl2::timer::get_ticks() - start_time;
-        if elapsed < 250 {
-            sdl2::timer::delay(250 - elapsed);
+        if elapsed < 500 {
+            sdl2::timer::delay(500 - elapsed);
         }
     }
 
@@ -106,18 +106,18 @@ struct State {
 
 fn pick_color(owner_id: i32) -> sdl2::pixels::Color {
     match owner_id {
-        0  => sdl2::pixels::RGB(0x50, 0x50, 0x50),
-        1  => sdl2::pixels::RGB(0xff, 0x00, 0x00),
-        2  => sdl2::pixels::RGB(0x00, 0xff, 0x00),
-        3  => sdl2::pixels::RGB(0x00, 0x00, 0xff),
-        4  => sdl2::pixels::RGB(0xff, 0xff, 0x00),
-        5  => sdl2::pixels::RGB(0x00, 0xff, 0xff),
-        6  => sdl2::pixels::RGB(0xff, 0x00, 0xff),
-        7  => sdl2::pixels::RGB(0xc0, 0x80, 0x00),
-        8  => sdl2::pixels::RGB(0x00, 0xc0, 0x80),
-        9  => sdl2::pixels::RGB(0xc0, 0x00, 0x80),
-        10 => sdl2::pixels::RGB(0x80, 0xc0, 0x00),
-        11 => sdl2::pixels::RGB(0x00, 0x80, 0xc0),
+        0  => sdl2::pixels::RGB(0x80, 0x80, 0x80),
+        1  => sdl2::pixels::RGB(0x00, 0xff, 0x00),
+        2  => sdl2::pixels::RGB(0x00, 0xff, 0x80),
+        3  => sdl2::pixels::RGB(0x00, 0xff, 0xff),
+        4  => sdl2::pixels::RGB(0x00, 0x80, 0xff),
+        5  => sdl2::pixels::RGB(0x00, 0x00, 0xff),
+        6  => sdl2::pixels::RGB(0x80, 0x00, 0xff),
+        7  => sdl2::pixels::RGB(0xff, 0x00, 0xc0),
+        8  => sdl2::pixels::RGB(0xff, 0x00, 0x00),
+        9  => sdl2::pixels::RGB(0xff, 0x80, 0x00),
+        10 => sdl2::pixels::RGB(0xff, 0xff, 0x00),
+        11 => sdl2::pixels::RGB(0x80, 0xff, 0x00),
         _  => sdl2::pixels::RGB(0xff, 0xff, 0xff),
     }
 }
@@ -132,7 +132,7 @@ fn transform_coord(state: &State, coord: (i32, i32)) -> (i32, i32) {
 
 #[must_use]
 fn draw(renderer: &sdl2::render::Renderer, state: &State) -> sdl2::SdlResult<()> {
-    let radius = state.draw_size / 200;
+    let radius = state.draw_size / 175;
     try!(renderer.set_draw_color(sdl2::pixels::RGB(0, 0, 0)));
     try!(renderer.clear());
 
