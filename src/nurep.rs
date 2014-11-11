@@ -52,17 +52,15 @@ fn main() {
         Err(err) => panic!(format!("failed to retrieve display size: {}", err))
     };
     let draw_size = cmp::min(screen_width, screen_height);
-    let ((min_x, max_x), (min_y, max_y)) = find_cluster_bounds(&game.cluster);
-    let extra = draw_size / 50;
+    let scale_factor = 0.95 * (draw_size as f64) / (cmp::max(game.cluster.dimensions.val0(), game.cluster.dimensions.val1()) as f64);
+
 
     let mut state = State {
         turn: 1,
         game: game,
         draw_size: draw_size,
-        draw_x_offset: (screen_width - draw_size) / 2,
-        draw_y_offset: (screen_height - draw_size) / 2,
-        cluster_x_bounds: (min_x - extra, max_x + extra),
-        cluster_y_bounds: (min_y - extra, max_y + extra),
+        draw_offsets: ((screen_width - draw_size) / 2, (screen_height - draw_size) / 2),
+        scale_factor: scale_factor,
     };
 
     'main : loop {
@@ -102,10 +100,8 @@ struct State {
     pub turn: i32,
     pub game: state::Game,
     pub draw_size: i32,
-    pub draw_x_offset: i32,
-    pub draw_y_offset: i32,
-    pub cluster_x_bounds: (i32, i32),
-    pub cluster_y_bounds: (i32, i32),
+    pub draw_offsets: (i32, i32),
+    pub scale_factor: f64,
 }
 
 fn pick_color(owner_id: i32) -> sdl2::pixels::Color {
@@ -129,30 +125,9 @@ fn pick_color(owner_id: i32) -> sdl2::pixels::Color {
 /// Transforms a coordinate pair from game coordinates to screen coordinates.
 fn transform_coord(state: &State, coord: (i32, i32)) -> (i32, i32) {
     let (x, y) = coord;
-    let (min_x, max_x) = state.cluster_x_bounds;
-    let (min_y, max_y) = state.cluster_y_bounds;
-    let x_factor = (state.draw_size as f64) / ((max_x - min_x) as f64);
-    let y_factor = (state.draw_size as f64) / ((max_y - min_y) as f64);
-    (((((x - min_x) as f64) * x_factor) as i32) + state.draw_x_offset,
-     state.draw_size - ((((y - min_y) as f64) * y_factor) as i32) + state.draw_y_offset)
-}
-
-/// Finds the lowest and greatest values for planet coordinates in the cluster.
-fn find_cluster_bounds(cluster: &state::Cluster) -> ((i32, i32), (i32, i32)) {
-    let mut min_x = 1000000i32;
-    let mut max_x = 0i32;
-    let mut min_y = 1000000i32;
-    let mut max_y = 0i32;
-
-    for planet in cluster.planets.iter() {
-        let (x, y) = planet.position;
-        min_x = cmp::min(min_x, x);
-        max_x = cmp::max(max_x, x);
-        min_y = cmp::min(min_y, y);
-        max_y = cmp::max(max_y, y);
-    }
-
-    ((min_x, max_x), (min_y, max_y))
+    let (scaled_x, scaled_y) = (((x as f64) * state.scale_factor) as i32, ((y as f64 * state.scale_factor)) as i32);
+    let (offset_x, offset_y) = state.draw_offsets;
+    (scaled_x + offset_x, scaled_y + offset_y)
 }
 
 #[must_use]
@@ -162,7 +137,13 @@ fn draw(renderer: &sdl2::render::Renderer, state: &State) -> sdl2::SdlResult<()>
     try!(renderer.clear());
 
     for planet in state.game.cluster.planets.iter() {
-        let owner = *state.game.planet_to_owners.get(&planet.id).unwrap().get(&state.turn).unwrap();
+        let owner = match state.game.planet_to_owners.get(&planet.id) {
+            Some(turn_to_owner) => match turn_to_owner.get(&state.turn) {
+                Some(x) => *x,
+                None => -1,
+            },
+            None => -1,
+        };
         let color = pick_color(owner);
         let (x, y) = transform_coord(state, planet.position);
         try!(drawing::draw_circle(renderer, (x, y), radius, color));

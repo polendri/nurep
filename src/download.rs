@@ -8,7 +8,10 @@ extern crate serialize;
 
 use planets_nu::request;
 use serialize::json;
+use std::cmp;
+use std::i32;
 use std::io;
+use std::num;
 use std::os;
 use std::collections::TreeMap;
 
@@ -18,89 +21,99 @@ mod state;
 struct Arguments {
     pub program_name: String,
     pub game_id: i32,
-    pub player_id: i32,
     pub output_path: String,
-    pub username: Option<String>,
 }
 
 /// Prints usage information for the utility.
-fn print_usage(program_name: &str, opts: &[getopts::OptGroup]) {
-    let brief = format!(
-        "Usage:\n    {} [options] <game_id> <player_id> <output_path>",
-        program_name);
-    println!("{}", getopts::usage(brief.as_slice(), opts));
+fn print_usage(program_name: &str) {
+    println!("Usage:");
+    println!("    {} [options] <game_id> <player_id> <output_path>", program_name);
 }
 
 /// Parses command-line arguments, returning a Arguments object on success.
 fn parse_args(args: &Vec<String>) -> Option<Arguments> {
     let program_name = args[0].clone();
 
-    let opts = [
-        getopts::optopt("a", "auth", "authenticate using the provided username", "USERNAME"),
-    ];
-
-    let matches = match getopts::getopts(args.tail(), opts) {
-        Ok(m) => m,
-        Err(_) => {
-            print_usage(program_name.as_slice(), opts);
-            return None;
-        },
-    };
-
-    if matches.free.len() < 3 {
-        print_usage(program_name.as_slice(), opts);
+    if args.len() < 3 {
+        print_usage(program_name.as_slice());
         return None;
     }
 
     let game_id = {
-        let game_id_opt: Option<i32> = from_str(matches.free[0].as_slice());
+        let game_id_opt: Option<i32> = from_str(args[1].as_slice());
         match game_id_opt {
             Some(x) => x,
             None => {
-                print_usage(program_name.as_slice(), opts);
+                print_usage(program_name.as_slice());
                 return None;
             },
         }
     };
 
-    let player_id = {
-        let player_id_opt: Option<i32> = from_str(matches.free[1].as_slice());
-        match player_id_opt {
-            Some(x) => x,
-            None => {
-                print_usage(program_name.as_slice(), opts);
-                return None;
-            },
-        }
-    };
-
-    let output_path = matches.free[2].clone();
-    let username = matches.opt_str("a");
+    let output_path = args[2].clone();
 
     Some(Arguments {
         program_name:  program_name,
         game_id:       game_id,
-        player_id:     player_id,
         output_path:   output_path,
-        username:      username,
     })
 }
 
 /// Builds a Cluster object from a load turn response.
 fn build_cluster(response: &request::LoadTurnResult) -> state::Cluster {
     let mut planets: Vec<state::Planet> = Vec::new();
+    let (mut min_x, mut max_x) = (i32::MAX, i32::MIN);
+    let (mut min_y, mut max_y) = (i32::MAX, i32::MIN);
 
+    // Build the planets list and determine min/max coordinate values
     for p in response.planets.iter() {
+        let (x, y) = p.position;
+        min_x = cmp::min(x, min_x);
+        max_x = cmp::max(x, max_x);
+        min_y = cmp::min(y, min_y);
+        max_y = cmp::max(y, max_y);
+
         planets.push(state::Planet {
             id: p.id,
             position: p.position,
         });
     }
 
+    // Adjust planet coordinates so they're zero-based
+    for &mut p in planets.iter() {
+        let (x, y) = p.position;
+        p.position = (x - min_x, y - min_y);
+    }
+
+    // Calculate connections by brute force
+    let mut connections: Vec<state::Connection> = Vec::new();
+    let mut i1 = 0u;
+
+    while i1 < planets.len() - 1 {
+        let mut i2 = i1 + 1;
+        while i2 < planets.len() {
+            let p1 = planets[i1];
+            let p2 = planets[i2];
+            let (x1, y1) = p1.position;
+            let (x2, y2) = p2.position;
+
+            if ((num::pow(x2 - x1, 2) + num::pow(y2 - y1, 2)) as f64).sqrt() <= 81.0 {
+                connections.push(state::Connection {
+                    id_a: p1.id,
+                    id_b: p2.id,
+                });
+            }
+
+            i2 += 1;
+        }
+
+        i1 += 1;
+    }
+
     state::Cluster {
-        dimensions: (response.game_settings.map_width, response.game_settings.map_height),
+        dimensions: (max_x - min_x, max_y - min_y),
         planets: planets,
-        connections: Vec::new(),
+        connections: connections,
     }
 }
 
@@ -108,6 +121,7 @@ fn build_cluster(response: &request::LoadTurnResult) -> state::Cluster {
 fn add_owners(
         planet_to_owners: &mut TreeMap<i32, TreeMap<i32, i32>>,
         response: &request::LoadTurnResult,
+        player_id: i32,
         turn: i32) {
     for p in response.planets.iter() {
         let turn_to_owner =
@@ -117,7 +131,13 @@ fn add_owners(
                 planet_to_owners.insert(p.id, TreeMap::new());
                 planet_to_owners.get_mut(&p.id).unwrap()
             };
-        turn_to_owner.insert(turn, p.owner_id);
+
+        if p.owner_id == player_id {
+            turn_to_owner.insert(turn, player_id);
+        }
+        else if !turn_to_owner.contains_key(&turn) {
+            turn_to_owner.insert(turn, 0);
+        }
     }
 }
 
@@ -127,42 +147,13 @@ fn main() {
         None => return,
     };
 
-    let api_key = match args.username {
-        Some(username) => {
-            println!("Please enter the planets.nu password associated with the specified username.");
-            print!("Password: ");
-            // TODO: Find a way to not echo this back to the user :(
-            let password = match io::stdin().read_line() {
-                Ok(ref s) => {
-                    let mut s_trunc = s.clone();
-                    s_trunc.truncate(s.len() - 1);
-                    s_trunc
-                },
-                Err(_) => return,
-            };
-            print!("\n\nAuthenticating with planets.nu...");
-
-            let login_result = match request::login(username.as_slice(), password.as_slice()) {
-                Ok(r) => r,
-                Err(e) => {
-                    println!(" ...Failed.");
-                    println!("");
-                    println!("Error occurred during authentication: {}", e);
-                    return;
-                },
-            };
-            println!(" ...Done.");
-            Some(login_result.api_key)
-        },
-        None => None,
-    };
-
-    let mut turn : i32 = 1;
-    print!("Downloading game data... Turn {: >4d}", turn);
+    let mut player_id: i32 = 1;
+    let mut turn: i32 = 1;
+    let mut max_turn: i32 = i32::MIN;
+    print!("Downloading game data for player {: >2d}... Turn {: >4d}", player_id, turn);
     io::stdio::flush();
 
-    // TODO: Figure out why we need a .clone() here
-    let response = match request::load_turn(args.game_id, Some(1), api_key.clone(), Some(args.player_id), false) {
+    let response = match request::load_turn(args.game_id, Some(1), None, Some(player_id), false) {
         Ok(x) => x,
         Err(e) => {
             println!("\nError: Request to planets.nu failed. (Reason: {})", e);
@@ -171,26 +162,37 @@ fn main() {
     };
     let cluster = build_cluster(&response);
     let mut planet_to_owners: TreeMap<i32, TreeMap<i32, i32>> = TreeMap::new();
-    add_owners(&mut planet_to_owners, &response, turn);
+    add_owners(&mut planet_to_owners, &response, player_id, turn);
     turn += 1;
 
-    loop {
-        print!("\rDownloading game data... Turn {: >4d}", turn);
-        io::stdio::flush();
-        let response = match request::load_turn(args.game_id, Some(turn), api_key.clone(), Some(args.player_id), false) {
-            Ok(x) => x,
-            Err(_) => break,
-        };
+    'outer: loop {
+        let mut load_turn_success = false;
 
-        add_owners(&mut planet_to_owners, &response, turn);
-        turn += 1;
+        loop {
+            print!("\rDownloading game data for player {: >2d}... Turn {: >4d}", player_id, turn);
+            io::stdio::flush();
+            let response = match request::load_turn(args.game_id, Some(turn), None, Some(player_id), false) {
+                Ok(x) => {
+                    load_turn_success = true;
+                    x
+                },
+                Err(_) => if load_turn_success { break; } else { break 'outer; },
+            };
+
+            add_owners(&mut planet_to_owners, &response, player_id, turn);
+            max_turn = cmp::max(turn, max_turn);
+            turn += 1;
+        }
+
+        println!("\rDownloading game data for player {: >2d}... ...Done. ", player_id);
+        player_id += 1;
+        turn = 1;
     }
 
-    println!("\rDownloading game data... ...Done. ");
     print!("Saving data to disk...");
 
     let game = state::Game {
-        num_turns: turn - 2,
+        num_turns: max_turn - 2,
         cluster: cluster,
         planet_to_owners: planet_to_owners
     };
