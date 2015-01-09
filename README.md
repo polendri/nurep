@@ -1,3 +1,7 @@
+This repository is no longer being maintained. Since Rust has continued to
+evolve since this was last updated, it would doubtless take a bunch of work to
+make this compile again.
+
 nurep
 =====
 
